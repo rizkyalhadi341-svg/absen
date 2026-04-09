@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Firebase Storage</title>
+</head>
+<body>
+  <h1>Test Firebase Storage</h1>
+  <input type="file" id="testFile" accept="image/*">
+  <button onclick="testUpload()">Test Upload</button>
+  <div id="result"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAo0CzlXq3fNT1sOC6udPAttghYn1WtvRQ",
+      authDomain: "absensiosissmkspa-57810.firebaseapp.com",
+      projectId: "absensiosissmkspa-57810",
+      storageBucket: "absensiosissmkspa-57810.firebasestorage.app",
+      messagingSenderId: "88513225826",
+      appId: "1:88513225826:web:af704ab0f97bd9442c9d3b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+
+    window.testUpload = async function() {
+      const fileInput = document.getElementById('testFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        document.getElementById('result').innerHTML = 'Pilih file dulu';
+        return;
+      }
+
+      try {
+        const storageRef = ref(storage, `test/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+        document.getElementById('result').innerHTML = `Upload berhasil: <a href="${url}" target="_blank">${url}</a>`;
+      } catch (error) {
+        document.getElementById('result').innerHTML = `Error: ${error.message}`;
+        console.error(error);
+      }
+    };
+  </script>
+</body>
+</html>

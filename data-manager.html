@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Manager - Absensi OSIS</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-warning { background: #ffc107; color: black; }
+    .btn:hover { opacity: 0.8; }
+    textarea { width: 100%; height: 300px; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: monospace; }
+    .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .data-preview { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+    .data-preview h4 { margin-top: 0; }
+    .stats { display: flex; gap: 20px; flex-wrap: wrap; }
+    .stat-item { background: #e9ecef; padding: 10px; border-radius: 5px; text-align: center; }
+    .stat-item .number { font-size: 24px; font-weight: bold; color: #007bff; }
+    .stat-item .label { font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Data Manager - Absensi OSIS</h1>
+    <p>Tool untuk mengelola dan mensinkronkan data antar browser</p>
+
+    <div class="card">
+      <h3>📈 Statistik Data Saat Ini</h3>
+      <div class="stats" id="statsContainer">
+        <div class="stat-item">
+          <div class="number" id="membersCount">0</div>
+          <div class="label">Anggota</div>
+        </div>
+        <div class="stat-item">
+          <div class="number" id="structureCount">0</div>
+          <div class="label">Struktur OSIS</div>
+        </div>
+        <div class="stat-item">
+          <div class="number" id="attendanceCount">0</div>
+          <div class="label">Data Absensi</div>
+        </div>
+        <div class="stat-item">
+          <div class="number" id="codesCount">0</div>
+          <div class="label">Kode Akses</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💾 Export Data (untuk Backup/Sync)</h3>
+      <p>Export semua data dari browser ini untuk diimport ke browser lain</p>
+      <button class="btn btn-primary" onclick="exportData()">📤 Export Semua Data</button>
+      <button class="btn btn-success" onclick="exportLocalData()">📤 Export Data Lokal Saja</button>
+      <div id="exportStatus"></div>
+      <textarea id="exportTextarea" placeholder="Data akan muncul di sini setelah export..." readonly></textarea>
+      <button class="btn btn-warning" onclick="copyToClipboard()">📋 Copy ke Clipboard</button>
+    </div>
+
+    <div class="card">
+      <h3>📥 Import Data (untuk Sync)</h3>
+      <p>Paste data yang sudah di-export dari browser lain</p>
+      <textarea id="importTextarea" placeholder="Paste data export di sini..."></textarea>
+      <button class="btn btn-success" onclick="importData()">📥 Import Data</button>
+      <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear Semua Data</button>
+      <div id="importStatus"></div>
+    </div>
+
+    <div class="card">
+      <h3>🔄 Sinkronisasi Real-time</h3>
+      <p>Fitur untuk sync data antar browser yang terbuka secara real-time</p>
+      <button class="btn btn-primary" onclick="startSync()">🔄 Start Sync</button>
+      <button class="btn btn-danger" onclick="stopSync()">⏹️ Stop Sync</button>
+      <div id="syncStatus"></div>
+      <div class="data-preview" id="syncPreview" style="display: none;">
+        <h4>Data yang akan di-sync:</h4>
+        <div id="syncDataContent"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🛠️ Tools Lanjutan</h3>
+      <button class="btn btn-warning" onclick="validateData()">✅ Validasi Data</button>
+      <button class="btn btn-info" onclick="showDataStructure()">📋 Lihat Struktur Data</button>
+      <button class="btn btn-secondary" onclick="downloadBackup()">💾 Download Backup File</button>
+      <div id="toolsStatus"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      getDoc,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAo0CzlXq3fNT1sOC6udPAttghYn1WtvRQ",
+      authDomain: "absensiosissmkspa-57810.firebaseapp.com",
+      projectId: "absensiosissmkspa-57810",
+      storageBucket: "absensiosissmkspa-57810.firebasestorage.app",
+      messagingSenderId: "88513225826",
+      appId: "1:88513225826:web:af704ab0f97bd9442c9d3b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Expose to global scope
+    window.db = db;
+    window.collection = collection;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.getDoc = getDoc;
+    window.getDocs = getDocs;
+  </script>
+
+  <script src="js/storage.js"></script>
+  <script>
+    let syncChannel = null;
+    let syncInterval = null;
+
+    // Load stats on page load
+    document.addEventListener('DOMContentLoaded', loadStats);
+
+    async function loadStats() {
+      try {
+        const [members, structure, attendance, codes] = await Promise.all([
+          Storage.getAllMembers(),
+          Storage.getAllOsisStructure(),
+          Storage.getCollectionData('attendance'),
+          Storage.getCollectionData('access_codes')
+        ]);
+
+        document.getElementById('membersCount').textContent = members.length;
+        document.getElementById('structureCount').textContent = structure.length;
+        document.getElementById('attendanceCount').textContent = attendance.length;
+        document.getElementById('codesCount').textContent = codes.length;
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    window.exportData = async function() {
+      const status = document.getElementById('exportStatus');
+      const textarea = document.getElementById('exportTextarea');
+
+      status.innerHTML = '<div class="status info">🔄 Mengexport data...</div>';
+
+      try {
+        const data = await Storage.exportData();
+        const jsonData = JSON.stringify(data, null, 2);
+
+        textarea.value = jsonData;
+        status.innerHTML = `<div class="status success">✅ Data berhasil di-export (${(jsonData.length / 1024).toFixed(2)} KB)</div>`;
+
+        // Update stats
+        loadStats();
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error export: ${error.message}</div>`;
+      }
+    };
+
+    window.exportLocalData = async function() {
+      const status = document.getElementById('exportStatus');
+      const textarea = document.getElementById('exportTextarea');
+
+      status.innerHTML = '<div class="status info">🔄 Mengexport data lokal...</div>';
+
+      try {
+        const members = await Storage.getAllMembers();
+        const structure = await Storage.getAllOsisStructure();
+
+        const localData = {
+          members,
+          osisStructure: structure,
+          exportDate: new Date().toISOString(),
+          type: 'local_only'
+        };
+
+        const jsonData = JSON.stringify(localData, null, 2);
+        textarea.value = jsonData;
+        status.innerHTML = `<div class="status success">✅ Data lokal berhasil di-export (${(jsonData.length / 1024).toFixed(2)} KB)</div>`;
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error export lokal: ${error.message}</div>`;
+      }
+    };
+
+    window.copyToClipboard = function() {
+      const textarea = document.getElementById('exportTextarea');
+      textarea.select();
+      document.execCommand('copy');
+
+      const status = document.getElementById('exportStatus');
+      status.innerHTML = '<div class="status success">✅ Data berhasil di-copy ke clipboard!</div>';
+
+      setTimeout(() => {
+        status.innerHTML = '';
+      }, 3000);
+    };
+
+    window.importData = async function() {
+      const textarea = document.getElementById('importTextarea');
+      const status = document.getElementById('importStatus');
+
+      if (!textarea.value.trim()) {
+        status.innerHTML = '<div class="status error">❌ Tidak ada data untuk di-import</div>';
+        return;
+      }
+
+      status.innerHTML = '<div class="status info">🔄 Mengimport data...</div>';
+
+      try {
+        const data = JSON.parse(textarea.value);
+        const success = await Storage.importData(data);
+
+        if (success) {
+          status.innerHTML = '<div class="status success">✅ Data berhasil di-import!</div>';
+          textarea.value = '';
+
+          // Update stats
+          loadStats();
+
+          // Broadcast sync if active
+          if (syncChannel) {
+            broadcastSyncData();
+          }
+        } else {
+          status.innerHTML = '<div class="status error">❌ Import gagal</div>';
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error import: ${error.message}</div>`;
+      }
+    };
+
+    window.clearAllData = async function() {
+      if (!confirm('⚠️ Yakin ingin menghapus SEMUA data? Tindakan ini tidak bisa dibatalkan!')) {
+        return;
+      }
+
+      const status = document.getElementById('importStatus');
+      status.innerHTML = '<div class="status info">🔄 Menghapus semua data...</div>';
+
+      try {
+        await Storage.clearAllData();
+        status.innerHTML = '<div class="status success">✅ Semua data berhasil dihapus</div>';
+
+        // Clear textarea
+        document.getElementById('importTextarea').value = '';
+
+        // Update stats
+        loadStats();
+
+        // Broadcast sync if active
+        if (syncChannel) {
+          broadcastSyncData();
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error clear data: ${error.message}</div>`;
+      }
+    };
+
+    window.startSync = function() {
+      const status = document.getElementById('syncStatus');
+
+      if (syncChannel) {
+        status.innerHTML = '<div class="status info">🔄 Sync sudah aktif</div>';
+        return;
+      }
+
+      try {
+        // Create broadcast channel for real-time sync
+        syncChannel = new BroadcastChannel('osis-data-sync');
+
+        syncChannel.onmessage = function(event) {
+          if (event.data.type === 'data-update') {
+            console.log('Received sync data:', event.data);
+            // Auto-import received data
+            document.getElementById('importTextarea').value = JSON.stringify(event.data.data, null, 2);
+            importData();
+          }
+        };
+
+        // Start periodic sync
+        syncInterval = setInterval(() => {
+          broadcastSyncData();
+        }, 5000); // Sync every 5 seconds
+
+        status.innerHTML = '<div class="status success">✅ Sync real-time aktif! Data akan tersinkron otomatis antar browser.</div>';
+
+        // Initial broadcast
+        broadcastSyncData();
+
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error start sync: ${error.message}</div>`;
+      }
+    };
+
+    window.stopSync = function() {
+      const status = document.getElementById('syncStatus');
+
+      if (syncChannel) {
+        syncChannel.close();
+        syncChannel = null;
+      }
+
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+
+      status.innerHTML = '<div class="status info">⏹️ Sync dihentikan</div>';
+    };
+
+    async function broadcastSyncData() {
+      if (!syncChannel) return;
+
+      try {
+        const data = await Storage.exportData();
+        syncChannel.postMessage({
+          type: 'data-update',
+          data: data,
+          timestamp: new Date().toISOString()
+        });
+
+        // Update preview
+        updateSyncPreview(data);
+      } catch (error) {
+        console.error('Error broadcasting sync data:', error);
+      }
+    }
+
+    function updateSyncPreview(data) {
+      const preview = document.getElementById('syncPreview');
+      const content = document.getElementById('syncDataContent');
+
+      content.innerHTML = `
+        <div><strong>Members:</strong> ${data.members?.length || 0}</div>
+        <div><strong>Structure:</strong> ${data.osisStructure?.length || 0}</div>
+        <div><strong>Attendance:</strong> ${data.attendance?.length || 0}</div>
+        <div><strong>Codes:</strong> ${data.accessCodes?.length || 0}</div>
+        <div><small>Last sync: ${new Date().toLocaleTimeString()}</small></div>
+      `;
+
+      preview.style.display = 'block';
+    }
+
+    window.validateData = async function() {
+      const status = document.getElementById('toolsStatus');
+      status.innerHTML = '<div class="status info">🔍 Memvalidasi data...</div>';
+
+      try {
+        const [members, structure] = await Promise.all([
+          Storage.getAllMembers(),
+          Storage.getAllOsisStructure()
+        ]);
+
+        let issues = [];
+
+        // Check members
+        if (!Array.isArray(members)) issues.push('Members bukan array');
+        members.forEach((member, index) => {
+          if (!member.id) issues.push(`Member ${index}: missing id`);
+          if (!member.name) issues.push(`Member ${index}: missing name`);
+        });
+
+        // Check structure
+        if (!Array.isArray(structure)) issues.push('Structure bukan array');
+        structure.forEach((item, index) => {
+          if (!item.id) issues.push(`Structure ${index}: missing id`);
+          if (!item.name) issues.push(`Structure ${index}: missing name`);
+          if (!item.position) issues.push(`Structure ${index}: missing position`);
+        });
+
+        if (issues.length === 0) {
+          status.innerHTML = '<div class="status success">✅ Semua data valid!</div>';
+        } else {
+          status.innerHTML = `<div class="status error">❌ Ditemukan ${issues.length} masalah:<br>${issues.map(issue => '• ' + issue).join('<br>')}</div>`;
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error validasi: ${error.message}</div>`;
+      }
+    };
+
+    window.showDataStructure = async function() {
+      const status = document.getElementById('toolsStatus');
+
+      try {
+        const data = await Storage.exportData();
+        const structure = {
+          localStorage: {
+            members: data.members?.length || 0,
+            osisStructure: data.osisStructure?.length || 0
+          },
+          firebase: {
+            attendance: data.attendance?.length || 0,
+            accessCodes: data.accessCodes?.length || 0
+          }
+        };
+
+        status.innerHTML = `
+          <div class="status info">
+            <strong>📁 Struktur Data:</strong><br>
+            <strong>Local Storage:</strong><br>
+            • Members: ${structure.localStorage.members}<br>
+            • OSIS Structure: ${structure.localStorage.osisStructure}<br>
+            <strong>Firebase:</strong><br>
+            • Attendance: ${structure.firebase.attendance}<br>
+            • Access Codes: ${structure.firebase.accessCodes}
+          </div>
+        `;
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    window.downloadBackup = async function() {
+      const status = document.getElementById('toolsStatus');
+
+      try {
+        const data = await Storage.exportData();
+        const jsonData = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `osis-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        status.innerHTML = '<div class="status success">✅ Backup file berhasil didownload!</div>';
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error download: ${error.message}</div>`;
+      }
+    };
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (syncChannel) {
+        syncChannel.close();
+      }
+      if (syncInterval) {
+        clearInterval(syncInterval);
+      }
+    });
+  </script>
+</body>
+</html>

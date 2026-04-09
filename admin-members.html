@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kelola Anggota - Absensi Osis SMK Singaparna</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar" style="background: linear-gradient(135deg, #1e90ff 0%, #0066cc 100%);">
+    <div class="container">
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <a class="navbar-brand" href="admin-dashboard.html" style="color: white; text-decoration: none;"><img src="https://image2url.com/r2/default/images/1775621096445-5f04205e-21b1-4c5e-8b0d-d76fb3f66c9e.png" alt="Logo" style="height: 70px; margin-right: 10px;">Absensi Osis SMK Singaparna</a>
+        <button class="nav-toggle" type="button" onclick="App.toggleSideMenu()" aria-label="Buka menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-links" style="gap: 1rem;">
+          <a href="admin-set-code.html" style="color: white; text-decoration: none; font-weight: 500;">Kode Akses</a>
+          <a href="admin-members.html" style="color: white; text-decoration: none; font-weight: 500;">Anggota</a>
+          <a href="admin-edit-attendance.html" style="color: white; text-decoration: none; font-weight: 500;">Edit Absensi</a>
+          <a href="recap.html" style="color: white; text-decoration: none; font-weight: 500;">Rekapan</a>
+          <a href="#" onclick="logout()" style="color: white; text-decoration: none; font-weight: 500;">Logout</a>
+        </div>
+      </div>
+      <div id="sideMenuOverlay" class="side-menu-overlay" onclick="App.closeSideMenu()"></div>
+      <aside id="sideMenu" class="side-menu" role="menu" aria-hidden="true">
+        <button class="side-menu-close" type="button" onclick="App.closeSideMenu()" aria-label="Tutup menu">&times;</button>
+        <a href="admin-set-code.html">Kode Akses</a>
+        <a href="admin-members.html">Anggota</a>
+        <a href="admin-edit-attendance.html">Edit Absensi</a>
+        <a href="recap.html">Rekapan</a>
+        <a href="#" onclick="logout()">Logout</a>
+      </aside>
+    </div>
+  </nav>
+
+  <div class="container mt-5">
+    <div style="display: flex; justify-content: center;">
+      <div style="width: 100%; max-width: 1000px;">
+        <div class="card shadow-lg mb-4">
+          <div class="card-header" style="background: linear-gradient(135deg, #1e90ff 0%, #0066cc 100%); color: white;">
+            <h4 style="margin: 0;">👥 Kelola Anggota OSIS</h4>
+          </div>
+          <div class="card-body">
+            <h5 class="mb-3">➕ Tambah Anggota Baru</h5>
+
+            <form id="addMemberForm">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="name" class="form-label">Nama Anggota *</label>
+                    <input type="text" class="form-control" id="name" 
+                           name="name" placeholder="Masukkan nama anggota" required>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="position" class="form-label">Posisi</label>
+                    <input type="text" class="form-control" id="position" 
+                           name="position" placeholder="Contoh: Ketua, Sekretaris, Bendahara">
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-success">✓ Tambah Anggota</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card shadow-lg">
+          <div class="card-header" style="background: #ffc107; color: #333;">
+            <h5 style="margin: 0;">📋 Daftar Anggota OSIS</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead class="table-dark">
+                  <tr>
+                    <th>#</th>
+                    <th>Nama</th>
+                    <th>Posisi</th>
+                    <th>Tanggal Daftar</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="memberTable">
+                  <tr>
+                    <td colspan="5" class="text-center text-muted">Memuat...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="alertContainer"></div>
+
+  <script type="module">
+    // Import Firebase config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      getDoc,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAo0CzlXq3fNT1sOC6udPAttghYn1WtvRQ",
+      authDomain: "absensiosissmkspa-57810.firebaseapp.com",
+      projectId: "absensiosissmkspa-57810",
+      storageBucket: "absensiosissmkspa-57810.firebasestorage.app",
+      messagingSenderId: "88513225826",
+      appId: "1:88513225826:web:af704ab0f97bd9442c9d3b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Expose to global scope
+    window.db = db;
+    window.collection = collection;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.getDoc = getDoc;
+    window.getDocs = getDocs;
+    window.updateDoc = updateDoc;
+    window.deleteDoc = deleteDoc;
+    window.query = query;
+    window.where = where;
+  </script>
+
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+  <script src="auto-sync.js"></script>
+  <script>
+    // Initialize Storage and check auth
+    async function initApp() {
+      await Storage.init();
+      App.checkAdminAuth();
+      loadMembers();
+    }
+
+    initApp();
+
+    async function loadMembers() {
+      try {
+        const members = await Storage.getAllMembers();
+        const table = document.getElementById('memberTable');
+
+        if (members.length === 0) {
+          table.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Belum ada anggota</td></tr>';
+          return;
+        }
+
+        let html = '';
+        members.forEach((member, index) => {
+          const dateStr = new Date(member.createdAt).toLocaleDateString('id-ID');
+          html += `<tr>
+            <td>${index + 1}</td>
+            <td><strong>${member.name}</strong></td>
+            <td>${member.position || '-'}</td>
+            <td><small>${dateStr}</small></td>
+            <td>
+              <button type="button" class="btn btn-sm btn-danger" onclick="deleteMember('${member.id}', '${member.name}')">
+                🗑️ Hapus
+              </button>
+            </td>
+          </tr>`;
+        });
+
+        table.innerHTML = html;
+      } catch (err) {
+        console.error('Error loading members:', err);
+        App.showAlert('danger', 'Gagal memuat data anggota: ' + err.message);
+      }
+    }
+
+    document.getElementById('addMemberForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value.trim();
+      const position = document.getElementById('position').value.trim();
+
+      if (!name) {
+        App.showAlert('warning', 'Nama tidak boleh kosong!');
+        return;
+      }
+
+      try {
+        await Storage.addMember(name, position);
+        App.showAlert('success', 'Anggota berhasil ditambahkan!');
+        document.getElementById('addMemberForm').reset();
+        loadMembers();
+      } catch (err) {
+        App.showAlert('danger', err.message);
+      }
+    });
+
+    async function deleteMember(id, name) {
+      if (confirm(`Yakin ingin menghapus anggota "${name}"?`)) {
+        try {
+          const success = await Storage.deleteMember(id);
+          if (success) {
+            App.showAlert('success', 'Anggota berhasil dihapus!');
+            loadMembers();
+          } else {
+            App.showAlert('danger', 'Anggota tidak ditemukan!');
+          }
+        } catch (err) {
+          App.showAlert('danger', 'Terjadi kesalahan: ' + err.message);
+        }
+      }
+    }
+
+    function logout() {
+      if (confirm('Yakin ingin logout?')) {
+        App.logoutAdmin();
+        window.location.href = 'index.html';
+      }
+    }
+
+    // Initialize
+    loadMembers();
+  </script>
+  <footer style="text-align: center; padding: 1rem; font-size: 0.8rem; color: #666;">by: alhadi</footer>
+</body>
+</html>

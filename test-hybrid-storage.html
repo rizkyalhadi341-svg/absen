@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Local Storage System</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+    button { margin: 5px; padding: 8px 15px; }
+    textarea { width: 100%; height: 100px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Test Sistem Penyimpanan Hybrid</h1>
+
+  <div class="test-section">
+    <h3>Test Local Storage (Anggota & Struktur)</h3>
+    <button onclick="testLocalStorage()">Test Local Storage</button>
+    <button onclick="clearLocalData()">Clear Local Data</button>
+    <button onclick="exportLocalData()">Export Local Data</button>
+    <div id="localResult"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>Test Firebase (Absensi, Kode, Admin)</h3>
+    <button onclick="testFirebase()">Test Firebase Connection</button>
+    <button onclick="testFirebaseData()">Test Firebase Data</button>
+    <div id="firebaseResult"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>Test Upload Foto (Data URL)</h3>
+    <input type="file" id="photoFile" accept="image/*">
+    <button onclick="testPhotoUpload()">Test Photo Upload</button>
+    <div id="photoResult"></div>
+    <div id="photoPreview"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>Import/Export Data</h3>
+    <button onclick="exportAllData()">Export All Data</button>
+    <textarea id="dataTextarea" placeholder="Paste data here to import"></textarea>
+    <button onclick="importData()">Import Data</button>
+    <div id="importResult"></div>
+  </div>
+
+  <script type="module">
+    // Import Firebase config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      getDoc,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAo0CzlXq3fNT1sOC6udPAttghYn1WtvRQ",
+      authDomain: "absensiosissmkspa-57810.firebaseapp.com",
+      projectId: "absensiosissmkspa-57810",
+      storageBucket: "absensiosissmkspa-57810.firebasestorage.app",
+      messagingSenderId: "88513225826",
+      appId: "1:88513225826:web:af704ab0f97bd9442c9d3b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Expose to global scope
+    window.db = db;
+    window.collection = collection;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.getDoc = getDoc;
+    window.getDocs = getDocs;
+  </script>
+
+  <script src="js/storage.js"></script>
+  <script>
+    // Test functions
+    window.testLocalStorage = async function() {
+      const result = document.getElementById('localResult');
+      result.innerHTML = '<div class="info">Testing local storage...</div>';
+
+      try {
+        // Test adding member
+        await Storage.addMember('Test Member', 'Ketua');
+        const members = await Storage.getAllMembers();
+
+        // Test adding OSIS position
+        await Storage.addOsisPosition('Test Position', 'Test Name', 'ketua');
+        const structure = await Storage.getAllOsisStructure();
+
+        result.innerHTML = `
+          <div class="success">✅ Local Storage OK</div>
+          <div>Members: ${members.length}</div>
+          <div>Structure: ${structure.length}</div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Local Storage Error: ${error.message}</div>`;
+      }
+    };
+
+    window.clearLocalData = async function() {
+      const result = document.getElementById('localResult');
+      try {
+        await Storage.clearAllData();
+        result.innerHTML = '<div class="success">✅ Local data cleared</div>';
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Clear error: ${error.message}</div>`;
+      }
+    };
+
+    window.exportLocalData = function() {
+      const result = document.getElementById('localResult');
+      try {
+        const members = localStorage.getItem('local_members');
+        const structure = localStorage.getItem('local_osis_structure');
+
+        result.innerHTML = `
+          <div class="info">Local Storage Data:</div>
+          <div><strong>Members:</strong> ${members ? members.length : 0} chars</div>
+          <div><strong>Structure:</strong> ${structure ? structure.length : 0} chars</div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Export error: ${error.message}</div>`;
+      }
+    };
+
+    window.testFirebase = function() {
+      const result = document.getElementById('firebaseResult');
+      if (window.db) {
+        result.innerHTML = '<div class="success">✅ Firebase connected</div>';
+      } else {
+        result.innerHTML = '<div class="error">❌ Firebase not connected</div>';
+      }
+    };
+
+    window.testFirebaseData = async function() {
+      const result = document.getElementById('firebaseResult');
+      result.innerHTML = '<div class="info">Testing Firebase data...</div>';
+
+      try {
+        const adminPassword = await Storage.getAdminPassword();
+        const accessCodes = await Storage.getCollectionData('access_codes');
+        const attendance = await Storage.getCollectionData('attendance');
+
+        result.innerHTML = `
+          <div class="success">✅ Firebase Data OK</div>
+          <div>Admin Password: ${adminPassword ? 'Set' : 'Not set'}</div>
+          <div>Access Codes: ${accessCodes.length}</div>
+          <div>Attendance Records: ${attendance.length}</div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Firebase Data Error: ${error.message}</div>`;
+      }
+    };
+
+    window.testPhotoUpload = function() {
+      const fileInput = document.getElementById('photoFile');
+      const result = document.getElementById('photoResult');
+      const preview = document.getElementById('photoPreview');
+
+      const file = fileInput.files[0];
+      if (!file) {
+        result.innerHTML = '<div class="error">❌ Pilih file foto dulu</div>';
+        return;
+      }
+
+      result.innerHTML = '<div class="info">Converting to data URL...</div>';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        result.innerHTML = `
+          <div class="success">✅ Photo converted to data URL</div>
+          <div>Size: ${(dataUrl.length / 1024).toFixed(2)} KB</div>
+        `;
+
+        preview.innerHTML = `<img src="${dataUrl}" style="max-width: 200px; max-height: 200px; border: 1px solid #ccc;">`;
+      };
+
+      reader.onerror = function() {
+        result.innerHTML = '<div class="error">❌ Error reading file</div>';
+      };
+
+      reader.readAsDataURL(file);
+    };
+
+    window.exportAllData = async function() {
+      const textarea = document.getElementById('dataTextarea');
+      const result = document.getElementById('importResult');
+
+      try {
+        const data = await Storage.exportData();
+        textarea.value = JSON.stringify(data, null, 2);
+        result.innerHTML = '<div class="success">✅ Data exported</div>';
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Export error: ${error.message}</div>`;
+      }
+    };
+
+    window.importData = async function() {
+      const textarea = document.getElementById('dataTextarea');
+      const result = document.getElementById('importResult');
+
+      try {
+        const data = JSON.parse(textarea.value);
+        const success = await Storage.importData(data);
+        if (success) {
+          result.innerHTML = '<div class="success">✅ Data imported successfully</div>';
+        } else {
+          result.innerHTML = '<div class="error">❌ Import failed</div>';
+        }
+      } catch (error) {
+        result.innerHTML = `<div class="error">❌ Import error: ${error.message}</div>`;
+      }
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Test page loaded');
+    });
+  </script>
+</body>
+</html>
